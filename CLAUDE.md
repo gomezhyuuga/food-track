@@ -35,7 +35,9 @@ src/
 - Los alimentos tachados por la nutrióloga llevan `status: "avoid"`; los
   resaltados (preferidos) llevan `status: "star"`.
 - El deploy a GitHub Pages es automático vía `.github/workflows/deploy.yml`
-  en cada push a la rama de desarrollo o `main`.
+  en cada push a la rama de desarrollo o `main`. La app vive en
+  https://diet.gomezh.dev (dominio custom configurado en los settings de
+  Pages; no se necesita archivo CNAME con deploys vía Actions).
 - Verificar con `npm run build` (incluye chequeo de tipos) antes de hacer push.
 - La UI es mobile-first y en español; priorizar registro con un toque y
   objetivos táctiles grandes.

@@ -4,7 +4,7 @@ PWA móvil para registrar las porciones diarias de alimentos según el plan de
 la nutrióloga (sistema de equivalentes CLIDDI). Local-first: todos los datos
 se guardan en el dispositivo (`localStorage`), sin backend.
 
-**App en vivo:** https://gomezhyuuga.github.io/food-track-/
+**App en vivo:** https://diet.gomezh.dev
 
 ## Funcionalidades
 
