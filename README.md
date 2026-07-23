@@ -1,23 +1,27 @@
 # Mi Dieta — Registro de Porciones
 
-Mobile-first PWA to track daily food portions against a nutritionist's meal plan
-(CLIDDI food-equivalents system). Local-first: all data is stored on-device in
-`localStorage`, no backend required.
+PWA móvil para registrar las porciones diarias de alimentos según el plan de
+la nutrióloga (sistema de equivalentes CLIDDI). Local-first: todos los datos
+se guardan en el dispositivo (`localStorage`), sin backend.
 
-## Features
+**App en vivo:** https://gomezhyuuga.github.io/food-track-/
 
-- **Hoy** — the day at a glance: per-category portion dots (e.g. POA 4/12),
-  organized by meal (Desayuno, Colación, Comida, Colación PM, Cena). The current
-  meal auto-expands based on time of day. One tap = one portion; `−` to undo.
-- **Agua** — one tap per 250 ml glass, with the 2.2–3.4 L daily target band.
-- **Historial** — past days with an adherence percentage; tap a day to see the
-  full log.
-- **Porciones** — searchable food-equivalents reference (1 portion of each
-  group), including the nutritionist's annotations: crossed-out items are shown
-  as *evitar*, highlighted ones (aguacate, nueces) as preferred ⭐.
-- Installable PWA (add to home screen), works offline.
+## Funcionalidades
 
-## Plan encoded (per day)
+- **Hoy** — el día de un vistazo: puntos de porciones por categoría (ej.
+  POA 4/12), organizado por comida (Desayuno, Colación, Comida, Colación PM,
+  Cena). La comida actual se expande automáticamente según la hora del día.
+  Un toque = una porción; `−` para deshacer.
+- **Agua** — un toque por vaso de 250 ml, con la meta diaria de 2.2–3.4 L.
+- **Historial** — días anteriores con porcentaje de apego; toca un día para
+  ver el registro completo.
+- **Porciones** — referencia buscable de equivalentes (1 porción de cada
+  grupo), con las anotaciones de la nutrióloga: los alimentos tachados se
+  muestran como *evitar* y los resaltados (aguacate, nueces) como
+  preferidos ⭐.
+- PWA instalable (agregar a pantalla de inicio), funciona sin conexión.
+
+## Plan codificado (por día)
 
 | Comida | Porciones |
 |---|---|
@@ -26,17 +30,23 @@ Mobile-first PWA to track daily food portions against a nutritionist's meal plan
 | Comida | 6 POA · 2 cereales · 1 fruta · verduras libres |
 | Cena | 4 POA · 1 cereal · verduras libres |
 
-Leguminosas and azúcares are marked **evitar**. Targets live in
-`src/data/plan.ts`; the equivalents list in `src/data/equivalents.ts` — edit
-those files when the plan changes.
+Leguminosas y azúcares están marcados como **evitar**. Las metas viven en
+`src/data/plan.ts`; la lista de equivalentes en `src/data/equivalents.ts` —
+edita esos archivos cuando cambie el plan.
 
-## Development
+## Desarrollo
 
 ```sh
 npm install
-npm run dev       # local dev server
-npm run build     # type-check + production build (dist/)
-npm run preview   # serve the production build
+npm run dev       # servidor de desarrollo local
+npm run build     # verificación de tipos + build de producción (dist/)
+npm run preview   # servir el build de producción
 ```
 
-Stack: Vite · React 18 · TypeScript. No other runtime dependencies.
+## Despliegue
+
+Cada push a la rama de desarrollo (o a `main`) ejecuta
+`.github/workflows/deploy.yml`, que construye la app y la publica en
+GitHub Pages automáticamente.
+
+Stack: Vite · React 18 · TypeScript. Sin otras dependencias en runtime.
