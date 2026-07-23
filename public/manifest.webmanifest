@@ -1,0 +1,18 @@
+{
+  "name": "Mi Dieta — Registro de Porciones",
+  "short_name": "Mi Dieta",
+  "description": "Registro diario de porciones según el plan de alimentación",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#10151f",
+  "theme_color": "#10151f",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
