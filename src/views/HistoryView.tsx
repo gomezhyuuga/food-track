@@ -1,21 +1,7 @@
-import { CATEGORIES, DAILY_TARGETS, MEALS, WATER, type CategoryId } from "../data/plan";
-import { listLoggedDates, loadDay, mealTotal, todayKey, useStoreVersion } from "../store";
+import { CATEGORIES, MEALS, WATER, type CategoryId } from "../data/plan";
+import { listLoggedDates, loadDay, todayKey, useStoreVersion } from "../store";
+import { dayAdherence, STREAK_THRESHOLD } from "../adherence";
 import PortionDots from "../components/PortionDots";
-
-function adherence(date: string): { pct: number; logged: boolean } {
-  const log = loadDay(date);
-  const targets = (Object.entries(DAILY_TARGETS) as [CategoryId, number][]).filter(
-    ([, t]) => t > 0
-  );
-  let met = 0;
-  let logged = log.waterMl > 0;
-  for (const [cat, target] of targets) {
-    const count = mealTotal(log, cat);
-    if (count > 0) logged = true;
-    if (count === target) met++;
-  }
-  return { pct: targets.length ? met / targets.length : 0, logged };
-}
 
 function formatDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
@@ -92,10 +78,14 @@ export default function HistoryView({ selectedDate, onSelectDate }: Props) {
         </section>
       )}
       {dates.map((date) => {
-        const { pct, logged } = adherence(date);
+        const { pct, logged } = dayAdherence(loadDay(date));
+        const inStreak = logged && pct >= STREAK_THRESHOLD;
         return (
           <button key={date} className="card history-row" onClick={() => onSelectDate(date)}>
-            <span className="history-date">{formatDate(date)}</span>
+            <span className="history-date">
+              {formatDate(date)}
+              {inStreak && <span className="history-flame"> 🔥</span>}
+            </span>
             <span className="history-meta">
               {logged ? (
                 <>

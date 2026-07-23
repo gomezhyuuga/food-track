@@ -395,6 +395,61 @@ button {
   margin: 4px 0;
 }
 
+/* ---------- Racha ---------- */
+.streak-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.streak-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.streak-flame {
+  font-size: 30px;
+  filter: grayscale(1) opacity(0.4);
+}
+
+.streak-flame.lit {
+  filter: none;
+}
+
+.streak-count {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.streak-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.streak-side {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.streak-today {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.streak-best {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.history-flame {
+  font-size: 13px;
+}
+
 /* ---------- Historial ---------- */
 .history-row {
   display: flex;

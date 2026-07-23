@@ -14,7 +14,10 @@ se guardan en el dispositivo (`localStorage`), sin backend.
   Un toque = una porción; `−` para deshacer.
 - **Agua** — un toque por vaso de 250 ml, con la meta diaria de 2.2–3.4 L.
 - **Historial** — días anteriores con porcentaje de apego; toca un día para
-  ver el registro completo.
+  ver el registro completo. Los días que cumplen llevan 🔥.
+- **Racha de apego** — días consecutivos cumpliendo al menos 3 de las 4 metas
+  diarias exactas; la vista Hoy muestra la racha actual, la mejor racha y las
+  metas del día en vivo.
 - **Porciones** — referencia buscable de equivalentes (1 porción de cada
   grupo), con las anotaciones de la nutrióloga: los alimentos tachados se
   muestran como *evitar* y los resaltados (aguacate, nueces) como

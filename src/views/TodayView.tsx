@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CATEGORIES, DAILY_TARGETS, MEALS, WATER, type CategoryId, type MealId } from "../data/plan";
 import { loadDay, mealTotal, todayKey, useDayActions, useStoreVersion } from "../store";
+import { computeStreaks, dayAdherence, STREAK_THRESHOLD } from "../adherence";
 import PortionDots from "../components/PortionDots";
 
 function currentMealId(): MealId {
@@ -13,6 +14,31 @@ function currentMealId(): MealId {
 }
 
 const EXTRA_CATEGORIES: CategoryId[] = ["grasas", "leguminosas", "azucares"];
+
+function StreakCard({ date }: { date: string }) {
+  const { current, best } = computeStreaks(date);
+  const today = dayAdherence(loadDay(date));
+  const todayCounts = today.logged && today.pct >= STREAK_THRESHOLD;
+  return (
+    <section className="card streak-card">
+      <div className="streak-main">
+        <span className={`streak-flame ${current > 0 ? "lit" : ""}`}>🔥</span>
+        <div>
+          <div className="streak-count">
+            {current} {current === 1 ? "día" : "días"}
+          </div>
+          <div className="streak-label">racha de apego</div>
+        </div>
+      </div>
+      <div className="streak-side">
+        <div className="streak-today">
+          Hoy: {today.metGoals}/{today.totalGoals} metas {todayCounts ? "✓" : ""}
+        </div>
+        <div className="streak-best">Mejor racha: {best} {best === 1 ? "día" : "días"}</div>
+      </div>
+    </section>
+  );
+}
 
 export default function TodayView() {
   useStoreVersion();
@@ -38,6 +64,8 @@ export default function TodayView() {
         <h1>Hoy</h1>
         <p className="date-label">{dateLabel}</p>
       </header>
+
+      <StreakCard date={date} />
 
       <section className="summary card">
         <h2>Resumen del día</h2>

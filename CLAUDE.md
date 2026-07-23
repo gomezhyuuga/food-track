@@ -23,6 +23,7 @@ src/
 ├── data/plan.ts          # Metas de porciones por comida (esquema de la nutrióloga)
 ├── data/equivalents.ts   # Lista de equivalentes de alimentos (1 porción por grupo)
 ├── store.ts              # Persistencia en localStorage + hooks
+├── adherence.ts          # Apego diario y rachas (umbral en STREAK_THRESHOLD)
 ├── App.tsx               # Navegación por pestañas (Hoy / Historial / Porciones)
 ├── views/                # TodayView, HistoryView, EquivalentsView
 └── components/           # PortionDots, etc.
