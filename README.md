@@ -2,7 +2,8 @@
 
 PWA móvil para registrar las porciones diarias de alimentos según el plan de
 la nutrióloga (sistema de equivalentes CLIDDI). Local-first: todos los datos
-se guardan en el dispositivo (`localStorage`), sin backend.
+se guardan en el dispositivo con [RxDB](https://rxdb.info) sobre IndexedDB,
+sin backend.
 
 **App en vivo:** https://diet.gomezh.dev
 
@@ -23,6 +24,18 @@ se guardan en el dispositivo (`localStorage`), sin backend.
   muestran como *evitar* y los resaltados (aguacate, nueces) como
   preferidos ⭐.
 - PWA instalable (agregar a pantalla de inicio), funciona sin conexión.
+- Los registros se sincronizan solos entre pestañas abiertas del navegador.
+
+## Datos
+
+Todo vive en el dispositivo, en una base RxDB (`midieta`) sobre IndexedDB. Al
+abrir la app por primera vez tras la migración se importan automáticamente los
+días guardados por la versión anterior (llaves `midieta:day:*` de
+`localStorage`); esas llaves **no se borran**, quedan como respaldo. La
+importación corre una sola vez y se marca con `midieta:rxdb-migrated`.
+
+No hay replicación configurada: los datos no salen del navegador. El esquema
+vive en `src/db.ts` y el puente reactivo hacia React en `src/store.ts`.
 
 ## Plan codificado (por día)
 
@@ -52,4 +65,4 @@ Cada push a la rama de desarrollo (o a `main`) ejecuta
 `.github/workflows/deploy.yml`, que construye la app y la publica en
 GitHub Pages automáticamente.
 
-Stack: Vite · React 18 · TypeScript. Sin otras dependencias en runtime.
+Stack: Vite · React 18 · TypeScript · RxDB (storage Dexie/IndexedDB).

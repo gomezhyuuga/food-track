@@ -1,13 +1,12 @@
 import { useCallback, useSyncExternalStore } from "react";
 import type { CategoryId, MealId } from "./data/plan";
+import { getDb } from "./db";
 
 export interface DayLog {
   date: string; // YYYY-MM-DD
   meals: Partial<Record<MealId, Partial<Record<CategoryId, number>>>>;
   waterMl: number;
 }
-
-const PREFIX = "midieta:day:";
 
 export function todayKey(): string {
   const d = new Date();
@@ -17,25 +16,6 @@ export function todayKey(): string {
 
 function emptyDay(date: string): DayLog {
   return { date, meals: {}, waterMl: 0 };
-}
-
-export function loadDay(date: string): DayLog {
-  try {
-    const raw = localStorage.getItem(PREFIX + date);
-    if (raw) return { ...emptyDay(date), ...JSON.parse(raw) };
-  } catch {
-    // datos corruptos: empezar el día en blanco
-  }
-  return emptyDay(date);
-}
-
-export function listLoggedDates(): string[] {
-  const dates: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key?.startsWith(PREFIX)) dates.push(key.slice(PREFIX.length));
-  }
-  return dates.sort().reverse();
 }
 
 const listeners = new Set<() => void>();
@@ -51,9 +31,64 @@ function subscribe(fn: () => void): () => void {
   return () => listeners.delete(fn);
 }
 
-export function saveDay(log: DayLog) {
-  localStorage.setItem(PREFIX + log.date, JSON.stringify(log));
-  notify();
+/**
+ * Espejo síncrono de la colección, alimentado por la suscripción de RxDB.
+ * Los días son documentos pequeños y son pocos, así que caben de sobra en
+ * memoria; a cambio las vistas y el cálculo de rachas siguen siendo síncronos.
+ */
+let snapshot = new Map<string, DayLog>();
+
+/** Abre la base y deja el snapshot listo antes del primer render. */
+export function initStore(): Promise<void> {
+  return getDb().then(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        let ready = false;
+        db.days.find().$.subscribe({
+          next: (docs) => {
+            snapshot = new Map(docs.map((doc) => [doc.date, doc.toMutableJSON()]));
+            notify();
+            if (!ready) {
+              ready = true;
+              resolve();
+            }
+          },
+          error: reject,
+        });
+      })
+  );
+}
+
+export function loadDay(date: string): DayLog {
+  return snapshot.get(date) ?? emptyDay(date);
+}
+
+export function listLoggedDates(): string[] {
+  return [...snapshot.keys()].sort().reverse();
+}
+
+/**
+ * Cola de escritura por fecha: los toques rápidos en "+" se solaparían y
+ * darían conflictos (409) o incrementos perdidos si corrieran en paralelo.
+ * `mutate` recibe siempre el estado más reciente del documento y devuelve uno
+ * nuevo — nunca muta el argumento (en dev RxDB congela los objetos).
+ */
+const queues = new Map<string, Promise<unknown>>();
+
+function mutateDay(date: string, mutate: (log: DayLog) => DayLog): Promise<void> {
+  const run = async () => {
+    const { days } = await getDb();
+    const doc = await days.findOne(date).exec();
+    if (doc) await doc.incrementalModify((data) => mutate(data));
+    else await days.insert(mutate(emptyDay(date)));
+  };
+  const next = (queues.get(date) ?? Promise.resolve()).then(run, run);
+  queues.set(date, next);
+  return next;
+}
+
+export function saveDay(log: DayLog): Promise<void> {
+  return mutateDay(log.date, (prev) => ({ ...prev, ...log }));
 }
 
 /** Re-renderiza cuando cambia cualquier día guardado. */
@@ -64,20 +99,23 @@ export function useStoreVersion(): number {
 export function useDayActions(date: string) {
   const adjust = useCallback(
     (meal: MealId, cat: CategoryId, delta: number) => {
-      const log = loadDay(date);
-      const mealLog = { ...(log.meals[meal] ?? {}) };
-      const next = Math.max(0, (mealLog[cat] ?? 0) + delta);
-      if (next === 0) delete mealLog[cat];
-      else mealLog[cat] = next;
-      saveDay({ ...log, meals: { ...log.meals, [meal]: mealLog } });
+      void mutateDay(date, (log) => {
+        const mealLog = { ...(log.meals[meal] ?? {}) };
+        const next = Math.max(0, (mealLog[cat] ?? 0) + delta);
+        if (next === 0) delete mealLog[cat];
+        else mealLog[cat] = next;
+        return { ...log, meals: { ...log.meals, [meal]: mealLog } };
+      });
     },
     [date]
   );
 
   const adjustWater = useCallback(
     (deltaMl: number) => {
-      const log = loadDay(date);
-      saveDay({ ...log, waterMl: Math.max(0, log.waterMl + deltaMl) });
+      void mutateDay(date, (log) => ({
+        ...log,
+        waterMl: Math.max(0, log.waterMl + deltaMl),
+      }));
     },
     [date]
   );
