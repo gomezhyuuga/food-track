@@ -1,0 +1,112 @@
+name: Preview por rama
+
+# Cada push a una rama que no sea de producción publica un preview propio en
+# Cloudflare Pages y lo registra como environment de GitHub, con URL clicable.
+# Producción sigue en GitHub Pages vía deploy.yml — este workflow no la toca.
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - claude/diet-tracking-app-ltlvrn
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Un push nuevo sobre la misma rama cancela el preview anterior en vuelo.
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Los secrets no se pueden leer en un `if` de job, así que se comprueban aquí
+  # y el resultado se pasa como output. Sin credenciales el workflow se salta
+  # en verde en vez de fallar en rojo, y no crea un environment vacío.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      listo: ${{ steps.check.outputs.listo }}
+    steps:
+      - id: check
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "listo=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Preview omitido"
+              echo
+              echo "Faltan los secrets \`CLOUDFLARE_API_TOKEN\` y/o \`CLOUDFLARE_ACCOUNT_ID\`."
+              echo "Los pasos de configuración están en \`docs/previews.md\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "listo=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  preview:
+    needs: gate
+    if: needs.gate.outputs.listo == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: preview-${{ github.ref_name }}
+      url: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Publicar preview en Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy dist
+            --project-name=${{ vars.CLOUDFLARE_PROJECT_NAME || 'food-track' }}
+            --branch=${{ github.ref_name }}
+
+      - name: Resumen
+        env:
+          ALIAS: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+          EXACTA: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          {
+            echo "### Preview de \`${{ github.ref_name }}\`"
+            echo
+            echo "| | URL |"
+            echo "|---|---|"
+            echo "| Rama (estable) | $ALIAS |"
+            echo "| Este build | $EXACTA |"
+            echo
+            echo "Origen propio: IndexedDB y localStorage van aparte de diet.gomezh.dev."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comentar la URL en el PR, si hay
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RAMA: ${{ github.ref_name }}
+          ALIAS: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+          EXACTA: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          pr=$(gh pr list --head "$RAMA" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            echo "Sin PR abierto para esta rama; el preview queda en el environment."
+            exit 0
+          fi
+          body=$(printf '🔎 **Preview de `%s`**\n\n- Rama (estable): %s\n- Este build: %s\n\nOrigen propio: los datos de prueba no tocan diet.gomezh.dev.' \
+            "$RAMA" "$ALIAS" "$EXACTA")
+          # Reescribe el comentario anterior en vez de acumular uno por push.
+          gh pr comment "$pr" --edit-last --body "$body" 2>/dev/null \
+            || gh pr comment "$pr" --body "$body"

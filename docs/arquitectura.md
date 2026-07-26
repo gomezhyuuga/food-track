@@ -245,17 +245,27 @@ cuando se cumplió, marcados aparte cuando se pasó, y sin límite para verduras
 ## 8. Deploy
 
 ```mermaid
-flowchart LR
-    push["push a main o a<br/>claude/diet-tracking-app-ltlvrn"] --> gha["GitHub Actions<br/>deploy.yml"]
-    gha --> build["npm ci<br/>npm run build<br/>tsc -b + vite"]
-    build --> pages["GitHub Pages"]
-    pages --> live["diet.gomezh.dev"]
+flowchart TD
+    push{"git push"}
+    push -->|"main o claude/diet-tracking-app-ltlvrn"| gha["deploy.yml"]
+    push -->|"cualquier otra rama"| pv["preview.yml"]
+
+    gha --> b1["npm ci · npm run build"]
+    b1 --> pages["GitHub Pages"]
+    pages --> live["diet.gomezh.dev<br/>datos reales"]
+
+    pv --> b2["npm ci · npm run build"]
+    b2 --> cf["Cloudflare Pages"]
+    cf --> prev["rama.food-track.pages.dev<br/>origen propio, datos aislados"]
 ```
 
 El dominio custom se configura en los settings de Pages; con deploys vía Actions
 no hace falta archivo `CNAME`. El service worker cachea el shell de la app para
 que funcione sin conexión — al cambiar los assets hay que subir el número de
 `CACHE` en `public/sw.js`.
+
+Los previews por rama se configuran una sola vez; los pasos están en
+[previews.md](previews.md).
 
 ---
 

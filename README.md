@@ -65,4 +65,14 @@ Cada push a la rama de desarrollo (o a `main`) ejecuta
 `.github/workflows/deploy.yml`, que construye la app y la publica en
 GitHub Pages automáticamente.
 
+Cualquier otra rama publica un **preview** en Cloudflare Pages con su propia URL
+(`<rama>.food-track.pages.dev`) y su propio almacenamiento, así que probar un
+cambio nunca toca los datos reales. Configuración en
+[`docs/previews.md`](docs/previews.md).
+
+## Documentación
+
+- [Arquitectura](docs/arquitectura.md) — cómo funciona el proyecto, con diagramas.
+- [Previews por rama](docs/previews.md) — entornos de prueba por rama.
+
 Stack: Vite · React 18 · TypeScript · RxDB (storage Dexie/IndexedDB).

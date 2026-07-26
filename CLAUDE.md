@@ -41,6 +41,10 @@ src/
   en cada push a la rama de desarrollo o `main`. La app vive en
   https://diet.gomezh.dev (dominio custom configurado en los settings de
   Pages; no se necesita archivo CNAME con deploys vía Actions).
+- Cualquier otra rama publica un preview en Cloudflare Pages vía
+  `.github/workflows/preview.yml`, con su propio subdominio y por tanto su
+  propia IndexedDB — los previews nunca tocan los datos de producción. Ver
+  `docs/previews.md`.
 - Verificar con `npm run build` (incluye chequeo de tipos) antes de hacer push.
   Ojo: el build **no** ejercita RxDB en dev-mode; probar también con
   `npm run dev`, porque dev-mode aplica chequeos que producción no hace (p. ej.
