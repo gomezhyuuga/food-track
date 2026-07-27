@@ -67,6 +67,11 @@ proyecto, no el del subdominio.
 
 ## Configuración inicial
 
+> **Ya está hecho.** El proyecto `food-track` existe en Cloudflare y los secrets
+> están guardados en el repo; el primer preview se publicó y verificó el
+> 2026-07-27. Esta sección queda como referencia para rehacerlo o para migrar el
+> proyecto a otra cuenta.
+
 Se hace **una sola vez**. Requiere una cuenta de Cloudflare (el plan gratuito
 alcanza de sobra).
 

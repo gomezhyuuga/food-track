@@ -59,6 +59,10 @@ npm run build     # verificación de tipos + build de producción (dist/)
 npm run preview   # servir el build de producción
 ```
 
+`npm run build` **no** ejercita RxDB en modo desarrollo. Antes de subir cambios
+que toquen la base, abre también `npm run dev`: el plugin `dev-mode` de RxDB
+aplica validaciones que producción no hace, y algunos errores solo aparecen ahí.
+
 ## Despliegue
 
 Cada push a la rama de desarrollo (o a `main`) ejecuta
