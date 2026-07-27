@@ -16,7 +16,7 @@ flowchart TD
     ghp --> live["diet.gomezh.dev<br/>⚠️ datos reales"]
 
     prev --> cf["Cloudflare Pages"]
-    cf --> url["rama.food-track.pages.dev<br/>✅ origen propio, IndexedDB vacío"]
+    cf --> url["rama.food-track-e0l.pages.dev<br/>✅ origen propio, IndexedDB vacío"]
 ```
 
 Producción no cambia: sigue en GitHub Pages vía `deploy.yml`. El workflow de
@@ -29,7 +29,7 @@ previews la ignora explícitamente (`branches-ignore: [main, claude/…]`).
 la app real: probar un build tocaría los datos de dieta de verdad.
 
 Cada rama en Cloudflare Pages recibe un subdominio propio
-(`mi-rama.food-track.pages.dev`), que es **otro origen**. El preview arranca con
+(`mi-rama.food-track-e0l.pages.dev`), que es **otro origen**. El preview arranca con
 la base vacía y nada de lo que pruebes ahí llega a producción.
 
 Como `*.pages.dev` está en la Public Suffix List, los previews tampoco comparten
@@ -54,11 +54,16 @@ Cada rama produce dos URLs:
 
 | URL | Qué es |
 |---|---|
-| `https://<rama>.food-track.pages.dev` | Estable: siempre apunta al último build de esa rama |
-| `https://<hash>.food-track.pages.dev` | Inmutable: ese build concreto, útil para comparar |
+| `https://<rama>.food-track-e0l.pages.dev` | Estable: siempre apunta al último build de esa rama |
+| `https://<hash>.food-track-e0l.pages.dev` | Inmutable: ese build concreto, útil para comparar |
 
 Cloudflare normaliza el nombre de la rama para el subdominio (minúsculas, y todo
 lo que no sea alfanumérico pasa a `-`).
+
+El proyecto se llama `food-track`, pero el subdominio público es
+`food-track-e0l`: cuando el nombre ya está tomado por otra cuenta, Cloudflare le
+añade un sufijo aleatorio. El `--project-name` del workflow usa el nombre del
+proyecto, no el del subdominio.
 
 ## Configuración inicial
 
@@ -84,6 +89,21 @@ gh variable set CLOUDFLARE_PROJECT_NAME --body "otro-nombre"
 
 ### 2. Crear el API token
 
+Cloudflare tiene tres credenciales distintas, y el prefijo las delata:
+
+| Prefijo | Qué es | ¿Sirve aquí? |
+|---|---|---|
+| `cfat_` | **Account API token** — pertenece a la cuenta, no a una persona | ✅ el mejor para CI |
+| `cfut_` | **User API token** — atado a tu usuario | ✅ funciona |
+| `cfk_` | **Global API Key** — llave legacy con acceso total | ❌ usa otro esquema de auth |
+
+El formato es el prefijo seguido de 40 caracteres y un checksum.
+
+Para CI conviene el **account-owned** (`cfat_`): actúa como service principal,
+así que el deploy no se rompe si la persona que creó el token pierde acceso a la
+cuenta. Pages está en su matriz de compatibilidad. El de usuario (`cfut_`)
+también funciona; es solo más frágil a largo plazo.
+
 En <https://dash.cloudflare.com/profile/api-tokens>:
 
 1. **Create Token**
@@ -96,13 +116,28 @@ En <https://dash.cloudflare.com/profile/api-tokens>:
    |---|---|---|
    | Account | Cloudflare Pages | Edit |
 
-5. **Continue to summary** → **Create Token**
+5. En **Account Resources**, elige la cuenta cuyo ID vas a guardar como
+   `CLOUDFLARE_ACCOUNT_ID`. Si no coinciden, el deploy falla con
+   `Authentication error [code: 10000]`.
+6. **Continue to summary** → **Create Token**
 
 El token **solo se muestra una vez**; cópialo antes de cerrar.
 
 Ese permiso es el único que hace falta para `wrangler pages deploy`, siempre que
 el Account ID se pase explícitamente — que es justo lo que hace el workflow con
 `accountId`. Por eso el token no necesita permisos de lectura de usuario.
+
+Para comprobar un token sin desplegar nada:
+
+```sh
+curl "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+  --header "Authorization: Bearer $CF_TOKEN"
+```
+
+Ojo con un detalle confuso: la respuesta **exitosa** trae `"code": 10000` con el
+mensaje `"This API Token is valid and active"` — el mismo número que el error de
+autenticación. Lo que importa es si aparece en `messages` (con `"success": true`)
+o en `errors`.
 
 ### 2b. Encontrar el Account ID
 

@@ -256,7 +256,7 @@ flowchart TD
 
     pv --> b2["npm ci · npm run build"]
     b2 --> cf["Cloudflare Pages"]
-    cf --> prev["rama.food-track.pages.dev<br/>origen propio, datos aislados"]
+    cf --> prev["rama.food-track-e0l.pages.dev<br/>origen propio, datos aislados"]
 ```
 
 El dominio custom se configura en los settings de Pages; con deploys vía Actions

@@ -66,7 +66,7 @@ Cada push a la rama de desarrollo (o a `main`) ejecuta
 GitHub Pages automáticamente.
 
 Cualquier otra rama publica un **preview** en Cloudflare Pages con su propia URL
-(`<rama>.food-track.pages.dev`) y su propio almacenamiento, así que probar un
+(`<rama>.food-track-e0l.pages.dev`) y su propio almacenamiento, así que probar un
 cambio nunca toca los datos reales. Configuración en
 [`docs/previews.md`](docs/previews.md).
 
