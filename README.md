@@ -65,9 +65,8 @@ aplica validaciones que producción no hace, y algunos errores solo aparecen ah�
 
 ## Despliegue
 
-Cada push a la rama de desarrollo (o a `main`) ejecuta
-`.github/workflows/deploy.yml`, que construye la app y la publica en
-GitHub Pages automáticamente.
+Cada push a `main` ejecuta `.github/workflows/deploy.yml`, que construye la app
+y la publica en GitHub Pages automáticamente.
 
 Cualquier otra rama publica un **preview** en Cloudflare Pages con su propia URL
 (`<rama>.food-track-e0l.pages.dev`) y su propio almacenamiento, así que probar un

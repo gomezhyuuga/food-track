@@ -247,7 +247,7 @@ cuando se cumplió, marcados aparte cuando se pasó, y sin límite para verduras
 ```mermaid
 flowchart TD
     push{"git push"}
-    push -->|"main o claude/diet-tracking-app-ltlvrn"| gha["deploy.yml"]
+    push -->|"main"| gha["deploy.yml"]
     push -->|"cualquier otra rama"| pv["preview.yml"]
 
     gha --> b1["npm ci · npm run build"]

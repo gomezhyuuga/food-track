@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, claude/diet-tracking-app-ltlvrn]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

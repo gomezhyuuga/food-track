@@ -20,7 +20,7 @@ flowchart TD
 ```
 
 Producción no cambia: sigue en GitHub Pages vía `deploy.yml`. El workflow de
-previews la ignora explícitamente (`branches-ignore: [main, claude/…]`).
+previews la ignora explícitamente (`branches-ignore: [main]`).
 
 ## Por qué Cloudflare y no una subcarpeta de Pages
 
