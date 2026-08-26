@@ -65,17 +65,31 @@ aplica validaciones que producción no hace, y algunos errores solo aparecen ah�
 
 ## Despliegue
 
-Cada push a `main` ejecuta `.github/workflows/deploy.yml`, que construye la app
-y la publica en GitHub Pages automáticamente.
+Todo vive en un **solo Worker de Cloudflare**: sirve los archivos estáticos de la
+app y atiende la ruta `/parse` que interpreta el texto. Mismo origen, así que no
+hay CORS que negociar ni URL del parser que configurar.
 
-Cualquier otra rama publica un **preview** en Cloudflare Pages con su propia URL
-(`<rama>.food-track-e0l.pages.dev`) y su propio almacenamiento, así que probar un
-cambio nunca toca los datos reales. Configuración en
-[`docs/previews.md`](docs/previews.md).
+Cada push a `main` ejecuta `.github/workflows/deploy.yml`: pruebas del Worker,
+build y `wrangler deploy`.
+
+Cualquier otra rama sube una **versión** sin promoverla (`wrangler versions
+upload`) y recibe su propia Preview URL en `workers.dev`. Cada preview es un
+origen distinto, así que probar un cambio nunca toca los datos reales.
+Configuración en [`docs/previews.md`](docs/previews.md).
+
+Para levantar la app y `/parse` juntos en local, como en producción:
+
+```bash
+npm run preview   # build + wrangler dev
+```
 
 ## Documentación
 
 - [Arquitectura](docs/arquitectura.md) — cómo funciona el proyecto, con diagramas.
 - [Previews por rama](docs/previews.md) — entornos de prueba por rama.
+- [El Worker](worker/README.md) — endpoint `/parse` y despliegue.
+- [`ai_docs/`](ai_docs/README.md) — contexto para agentes: modelo de datos,
+  pipeline del LLM, y las trampas que ya costaron tiempo.
 
-Stack: Vite · React 18 · TypeScript · RxDB (storage Dexie/IndexedDB).
+Stack: Vite · React 18 · TypeScript · RxDB (storage Dexie/IndexedDB) ·
+Cloudflare Workers + AI Gateway.

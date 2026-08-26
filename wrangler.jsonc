@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "food-track",
+  "main": "./worker/src/index.ts",
+  "compatibility_date": "2026-08-25",
+
+  // La PWA y la ruta /parse viven en el MISMO Worker: mismo origen, sin CORS
+  // que negociar y sin variable de build con la URL del parser.
+  "assets": {
+    "directory": "./dist/",
+    "binding": "ASSETS",
+    // La app es client-side: cualquier navegación que no case con un asset
+    // devuelve index.html.
+    "not_found_handling": "single-page-application",
+    // Solo /parse entra al Worker; todo lo demás se sirve como asset estático
+    // sin ejecutar código.
+    "run_worker_first": ["/parse"]
+  },
+
+  // Binding de AI Gateway. El gateway se elige por id en cada llamada.
+  "ai": { "binding": "AI" },
+  "observability": { "enabled": true },
+  "workers_dev": true,
+
+  "vars": {
+    "GATEWAY_ID": "midieta",
+    "MODEL": "google/gemini-2.5-flash",
+    // Orígenes extra permitidos, separados por coma. El origen propio,
+    // diet.gomezh.dev y localhost ya están permitidos en el código.
+    "EXTRA_ORIGINS": ""
+  }
+}

@@ -14,9 +14,10 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 export default function App() {
   const [tab, setTab] = useState<Tab>("hoy");
   const [historyDate, setHistoryDate] = useState<string | null>(null);
+  const showComposer = tab === "hoy";
 
   return (
-    <div className="app">
+    <div className={`app ${showComposer ? "has-composer" : ""}`}>
       <main className="content">
         {tab === "hoy" && <TodayView />}
         {tab === "historial" && (
@@ -24,18 +25,30 @@ export default function App() {
         )}
         {tab === "porciones" && <EquivalentsView />}
       </main>
-      <nav className="tabbar">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            className={`tab ${tab === t.id ? "active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            <span className="tab-icon">{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
-      </nav>
+
+      {/* La barra de registro y la tab bar comparten contenedor fijo: así el
+          fondo completo se puede marcar `inert` mientras la hoja está abierta.
+          `#composer-slot` lo llena `Composer` con un portal desde `TodayView`. */}
+      <div className="composer-wrap">
+        {showComposer && (
+          <>
+            <div className="composer-fade" />
+            <div id="composer-slot" />
+          </>
+        )}
+        <nav className="tabbar">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`tab ${tab === t.id ? "active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
+              <span className="tab-icon">{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
     </div>
   );
 }

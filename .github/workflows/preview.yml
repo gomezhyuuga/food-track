@@ -1,8 +1,10 @@
 name: Preview por rama
 
-# Cada push a una rama que no sea de producción publica un preview propio en
-# Cloudflare Pages y lo registra como environment de GitHub, con URL clicable.
-# Producción sigue en GitHub Pages vía deploy.yml — este workflow no la toca.
+# Cada push a una rama que no sea de producción sube una VERSIÓN del Worker
+# sin promoverla a producción, y registra su Preview URL como environment de
+# GitHub. Cada versión recibe su propio subdominio en workers.dev, así que
+# conserva la propiedad que importa: origen propio, IndexedDB aparte de la de
+# producción. Este workflow nunca promueve nada.
 
 on:
   push:
@@ -51,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: preview-${{ github.ref_name }}
-      url: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+      url: ${{ steps.url.outputs.preview }}
     steps:
       - uses: actions/checkout@v7
 
@@ -62,33 +64,41 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run test:worker
+
       - run: npm run build
 
-      - name: Publicar preview en Cloudflare Pages
+      - name: Subir versión del Worker
         id: deploy
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: >-
-            pages deploy dist
-            --project-name=${{ vars.CLOUDFLARE_PROJECT_NAME || 'food-track' }}
-            --branch=${{ github.ref_name }}
+            versions upload
+            --message "preview de ${{ github.ref_name }}"
+
+      # El nombre del output varía entre versiones de la action, así que la URL
+      # se extrae del texto del comando: es estable aunque el output cambie.
+      - name: Extraer la Preview URL
+        id: url
+        env:
+          SALIDA: ${{ steps.deploy.outputs.command-output }}
+        run: |
+          url=$(printf '%s' "$SALIDA" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -1)
+          echo "preview=$url" >> "$GITHUB_OUTPUT"
 
       - name: Resumen
         env:
-          ALIAS: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
-          EXACTA: ${{ steps.deploy.outputs.deployment-url }}
+          PREVIEW: ${{ steps.url.outputs.preview }}
         run: |
           {
             echo "### Preview de \`${{ github.ref_name }}\`"
             echo
-            echo "| | URL |"
-            echo "|---|---|"
-            echo "| Rama (estable) | $ALIAS |"
-            echo "| Este build | $EXACTA |"
+            echo "URL: ${PREVIEW:-revisa el log}"
             echo
-            echo "Origen propio: IndexedDB y localStorage van aparte de diet.gomezh.dev."
+            echo "Origen propio: IndexedDB y localStorage van aparte de producción."
+            echo "Esta versión NO está promovida a producción."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comentar la URL en el PR, si hay
@@ -96,16 +106,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RAMA: ${{ github.ref_name }}
-          ALIAS: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
-          EXACTA: ${{ steps.deploy.outputs.deployment-url }}
+          PREVIEW: ${{ steps.url.outputs.preview }}
         run: |
           pr=$(gh pr list --head "$RAMA" --state open --json number --jq '.[0].number // empty')
           if [ -z "$pr" ]; then
             echo "Sin PR abierto para esta rama; el preview queda en el environment."
             exit 0
           fi
-          body=$(printf '🔎 **Preview de `%s`**\n\n- Rama (estable): %s\n- Este build: %s\n\nOrigen propio: los datos de prueba no tocan diet.gomezh.dev.' \
-            "$RAMA" "$ALIAS" "$EXACTA")
+          body=$(printf '🔎 **Preview de `%s`**\n\n%s\n\nOrigen propio: los datos de prueba no tocan producción. Esta versión no está promovida.' \
+            "$RAMA" "$PREVIEW")
           # Reescribe el comentario anterior en vez de acumular uno por push.
           gh pr comment "$pr" --edit-last --body "$body" 2>/dev/null \
             || gh pr comment "$pr" --body "$body"

@@ -1,7 +1,14 @@
 // Cálculo de apego ("a mayor apego, mayor éxito") y rachas.
 
 import { DAILY_TARGETS, type CategoryId } from "./data/plan";
-import { listLoggedDates, loadDay, mealTotal, type DayLog } from "./store";
+import {
+  entryPortionsFor,
+  listEntries,
+  listLoggedDates,
+  loadDay,
+  mealTotal,
+  type DayLog,
+} from "./store";
 
 /** Umbral de apego para que un día cuente en la racha (3 de 4 grupos exactos). */
 export const STREAK_THRESHOLD = 0.75;
@@ -15,14 +22,29 @@ export interface DayAdherence {
   totalGoals: number;
 }
 
+/**
+ * Porciones totales de una categoría: las tocadas a mano más las que aportan
+ * los alimentos registrados por texto.
+ *
+ * El total se **redondea** antes de compararlo con la meta. Los alimentos por
+ * peso producen fracciones (150 g de pechuga = 3.75 porciones POA) y la regla
+ * de apego exige igualdad exacta; sin redondear, `count === 12` sería
+ * prácticamente inalcanzable y la racha se rompería para siempre. Redondear
+ * conserva la regla de "dar en el blanco" y mantiene comparables los días
+ * registrados antes de este cambio.
+ */
+export function totalPortions(log: DayLog, cat: CategoryId): number {
+  return Math.round(mealTotal(log, cat) + entryPortionsFor(log.date, cat));
+}
+
 export function dayAdherence(log: DayLog): DayAdherence {
   const targets = (Object.entries(DAILY_TARGETS) as [CategoryId, number][]).filter(
     ([, t]) => t > 0
   );
   let met = 0;
-  let logged = log.waterMl > 0;
+  let logged = log.waterMl > 0 || listEntries(log.date).length > 0;
   for (const [cat, target] of targets) {
-    const count = mealTotal(log, cat);
+    const count = totalPortions(log, cat);
     if (count > 0) logged = true;
     if (count === target) met++;
   }

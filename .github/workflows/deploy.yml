@@ -1,4 +1,11 @@
-name: Deploy to GitHub Pages
+name: Desplegar a Cloudflare Workers
+
+# Cada push a main despliega la app y la ruta /parse como un solo Worker.
+#
+# Mientras `wrangler.jsonc` no declare `routes`, el despliegue publica solo en
+# la URL de workers.dev y NO toca diet.gomezh.dev. Ese es el plan por etapas:
+# probar en workers.dev con datos de prueba y mover el dominio después, cuando
+# la IndexedDB de producción reaparece intacta bajo el mismo origen.
 
 on:
   push:
@@ -7,19 +14,37 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  gate:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      listo: ${{ steps.check.outputs.listo }}
+    steps:
+      - id: check
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "listo=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Despliegue omitido"
+              echo
+              echo "Faltan los secrets \`CLOUDFLARE_API_TOKEN\` y/o \`CLOUDFLARE_ACCOUNT_ID\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "listo=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.listo == 'true'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -27,10 +52,21 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run test:worker
       - run: npm run build
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
+      - uses: cloudflare/wrangler-action@v4
+        id: deploy
         with:
-          path: dist
-      - id: deployment
-        uses: actions/deploy-pages@v5
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+      - name: Resumen
+        env:
+          SALIDA: ${{ steps.deploy.outputs.command-output }}
+        run: |
+          url=$(printf '%s' "$SALIDA" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -1)
+          {
+            echo "### Desplegado"
+            echo
+            [ -n "$url" ] && echo "URL: $url" || echo "Revisa el log para la URL."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -244,25 +244,37 @@ cuando se cumplió, marcados aparte cuando se pasó, y sin límite para verduras
 
 ## 8. Deploy
 
+La app y el parser son **un solo Worker**. `wrangler.jsonc` sirve `dist/` como
+assets estáticos y manda solo `/parse` al código del Worker
+(`run_worker_first`). Consecuencia práctica: mismo origen, sin CORS y sin
+variable de build con la URL del parser — la llamada es relativa.
+
 ```mermaid
 flowchart TD
     push{"git push"}
     push -->|"main"| gha["deploy.yml"]
     push -->|"cualquier otra rama"| pv["preview.yml"]
 
-    gha --> b1["npm ci · npm run build"]
-    b1 --> pages["GitHub Pages"]
-    pages --> live["diet.gomezh.dev<br/>datos reales"]
+    gha --> b1["test:worker · build"]
+    b1 --> dep["wrangler deploy"]
+    dep --> live["Worker food-track<br/>app + /parse"]
 
-    pv --> b2["npm ci · npm run build"]
-    b2 --> cf["Cloudflare Pages"]
-    cf --> prev["rama.food-track-e0l.pages.dev<br/>origen propio, datos aislados"]
+    pv --> b2["test:worker · build"]
+    b2 --> ver["wrangler versions upload<br/>(no promueve)"]
+    ver --> prev["Preview URL en workers.dev<br/>origen propio, datos aislados"]
 ```
 
-El dominio custom se configura en los settings de Pages; con deploys vía Actions
-no hace falta archivo `CNAME`. El service worker cachea el shell de la app para
-que funcione sin conexión — al cambiar los assets hay que subir el número de
-`CACHE` en `public/sw.js`.
+**Migración por etapas del dominio.** Mientras `wrangler.jsonc` no declare
+`routes`, el despliegue solo publica en `workers.dev` y no toca
+`diet.gomezh.dev`. Eso permite probar con datos de prueba sin arriesgar los
+reales. Al atar el dominio al Worker, el origen no cambia y la IndexedDB de
+producción reaparece intacta — por eso conservarlo no es opcional.
+
+El service worker cachea el shell de la app para que funcione sin conexión — al
+cambiar los assets hay que subir el número de `CACHE` en `public/sw.js`. La
+llamada a `/parse` va por POST a propósito: la estrategia del service worker es
+cache-first para todo lo que no sea navegación y se quedaría con un GET cacheado
+para siempre.
 
 Los previews por rama se configuran una sola vez; los pasos están en
 [previews.md](previews.md).

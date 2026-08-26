@@ -12,28 +12,30 @@ flowchart TD
     push -->|"main"| prod["deploy.yml"]
     push -->|"cualquier otra rama"| prev["preview.yml"]
 
-    prod --> ghp["GitHub Pages"]
-    ghp --> live["diet.gomezh.dev<br/>⚠️ datos reales"]
+    prod --> dep["wrangler deploy"]
+    dep --> live["Worker food-track<br/>⚠️ datos reales"]
 
-    prev --> cf["Cloudflare Pages"]
-    cf --> url["rama.food-track-e0l.pages.dev<br/>✅ origen propio, IndexedDB vacío"]
+    prev --> ver["wrangler versions upload<br/>(sube, no promueve)"]
+    ver --> url["Preview URL en workers.dev<br/>✅ origen propio, IndexedDB vacío"]
 ```
 
-Producción no cambia: sigue en GitHub Pages vía `deploy.yml`. El workflow de
-previews la ignora explícitamente (`branches-ignore: [main]`).
+Producción solo cambia con un push a `main`. El workflow de previews la ignora
+explícitamente (`branches-ignore: [main]`) y además usa `versions upload`, que
+**sube una versión sin promoverla**: aunque se ejecutara sobre `main`, no
+reemplazaría lo que sirve producción.
 
-## Por qué Cloudflare y no una subcarpeta de Pages
+## Por qué una URL aparte y no una subcarpeta
 
 **IndexedDB y localStorage se aíslan por origen, no por ruta.** Un preview en
 `diet.gomezh.dev/preview/mi-rama/` compartiría la base `rxdb-dexie-midieta` con
 la app real: probar un build tocaría los datos de dieta de verdad.
 
-Cada rama en Cloudflare Pages recibe un subdominio propio
-(`mi-rama.food-track-e0l.pages.dev`), que es **otro origen**. El preview arranca con
-la base vacía y nada de lo que pruebes ahí llega a producción.
+Cada versión del Worker recibe su propia Preview URL en `workers.dev`, que es
+**otro origen**. El preview arranca con la base vacía y nada de lo que pruebes
+ahí llega a producción.
 
-Como `*.pages.dev` está en la Public Suffix List, los previews tampoco comparten
-almacenamiento entre ramas.
+Como `*.workers.dev` está en la Public Suffix List, los previews tampoco
+comparten almacenamiento entre sí.
 
 ## Qué hace el workflow
 
@@ -42,7 +44,7 @@ flowchart LR
     A["push a una rama"] --> B{"¿hay secrets<br/>de Cloudflare?"}
     B -->|no| C["job en verde<br/>+ aviso en el summary"]
     B -->|sí| D["npm ci<br/>npm run build"]
-    D --> E["wrangler pages deploy"]
+    D --> E["wrangler versions upload"]
     E --> F["environment<br/>preview-rama"]
     E --> G["comentario en el PR<br/>si hay uno abierto"]
 ```
@@ -50,47 +52,37 @@ flowchart LR
 Sin credenciales configuradas el workflow **se salta en verde** en vez de fallar
 en rojo, y no crea un environment vacío.
 
-Cada rama produce dos URLs:
+Cada push produce una **Preview URL** propia:
 
 | URL | Qué es |
 |---|---|
-| `https://<rama>.food-track-e0l.pages.dev` | Estable: siempre apunta al último build de esa rama |
-| `https://<hash>.food-track-e0l.pages.dev` | Inmutable: ese build concreto, útil para comparar |
+| `https://<version>-food-track.gomezhyuuga.workers.dev` | Esa versión concreta, inmutable |
 
-Cloudflare normaliza el nombre de la rama para el subdominio (minúsculas, y todo
-lo que no sea alfanumérico pasa a `-`).
+A diferencia de Pages, no hay alias estable por rama: cada versión tiene su URL.
+A cambio, cada una es reproducible y comparable, y ninguna puede reemplazar
+producción por accidente — `versions upload` sube sin promover.
 
-El proyecto se llama `food-track`, pero el subdominio público es
-`food-track-e0l`: cuando el nombre ya está tomado por otra cuenta, Cloudflare le
-añade un sufijo aleatorio. El `--project-name` del workflow usa el nombre del
-proyecto, no el del subdominio.
+La URL queda registrada como environment de GitHub (`preview-<rama>`) y, si hay
+un PR abierto, en un comentario que se reescribe en cada push.
 
 ## Configuración inicial
 
-> **Ya está hecho.** El proyecto `food-track` existe en Cloudflare y los secrets
-> están guardados en el repo; el primer preview se publicó y verificó el
-> 2026-07-27. Esta sección queda como referencia para rehacerlo o para migrar el
-> proyecto a otra cuenta.
+> Los secrets `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID` ya están
+> guardados en el repo desde la etapa de Cloudflare Pages y **siguen sirviendo**.
+> Lo que cambia es el destino: en vez de un proyecto de Pages, ahora se sube una
+> versión del Worker.
 
 Se hace **una sola vez**. Requiere una cuenta de Cloudflare (el plan gratuito
 alcanza de sobra).
 
-### 1. Crear el proyecto de Pages
+### 1. Habilitar el subdominio de workers.dev
 
-```sh
-npx wrangler login
-npx wrangler pages project create food-track --production-branch=main
-```
+Las Preview URLs cuelgan del subdominio `workers.dev` de la cuenta. Se activa
+una sola vez desde el panel (**Workers & Pages → Domains**) o queda listo con el
+primer `wrangler deploy`. En `wrangler.jsonc` ya está `"workers_dev": true`.
 
-`--production-branch=main` importa: como el workflow nunca despliega `main` a
-Cloudflare, **todo lo que publique será un preview**, nunca la producción de
-Cloudflare.
-
-Si le pones otro nombre al proyecto, regístralo:
-
-```sh
-gh variable set CLOUDFLARE_PROJECT_NAME --body "otro-nombre"
-```
+El nombre del Worker (`food-track`) sale de `wrangler.jsonc`; no hace falta
+registrar ninguna variable extra en el repo.
 
 ### 2. Crear el API token
 
@@ -128,9 +120,13 @@ En <https://dash.cloudflare.com/profile/api-tokens>:
 
 El token **solo se muestra una vez**; cópialo antes de cerrar.
 
-Ese permiso es el único que hace falta para `wrangler pages deploy`, siempre que
-el Account ID se pase explícitamente — que es justo lo que hace el workflow con
-`accountId`. Por eso el token no necesita permisos de lectura de usuario.
+Con Workers el permiso que hace falta es **Account → Workers Scripts → Edit**
+(el de Pages ya no aplica). Sigue bastando con eso mientras el Account ID se
+pase explícitamente — que es justo lo que hace el workflow con `accountId`. Por
+eso el token no necesita permisos de lectura de usuario.
+
+Si el token existente solo tenía el permiso de Pages, hay que editarlo o crear
+uno nuevo: el `deploy` fallará con un error de autorización.
 
 Para comprobar un token sin desplegar nada:
 
@@ -167,8 +163,11 @@ Ni los alias de Cloudflare ni los environments de GitHub se borran solos al
 borrar una rama. Para limpiar de vez en cuando:
 
 ```sh
-# Ver los previews publicados
-npx wrangler pages deployment list --project-name=food-track
+# Ver las versiones subidas
+npx wrangler versions list
+
+# Ver qué versión sirve producción ahora mismo
+npx wrangler deployments list
 
 # Borrar un environment viejo de GitHub
 gh api -X DELETE repos/gomezhyuuga/food-track/environments/preview-mi-rama

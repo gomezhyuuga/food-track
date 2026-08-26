@@ -10,10 +10,19 @@ import {
   type RxStorage,
 } from "rxdb";
 import { getRxStorageDexie } from "rxdb/plugins/storage-dexie";
-import type { DayLog } from "./store";
+import type { DayLog, FoodEntry, FoodMemory, Settings } from "./types";
 
 export type DayCollection = RxCollection<DayLog>;
-export type MiDietaCollections = { days: DayCollection };
+export type EntryCollection = RxCollection<FoodEntry>;
+export type FoodCollection = RxCollection<FoodMemory>;
+export type SettingsCollection = RxCollection<Settings>;
+
+export type MiDietaCollections = {
+  days: DayCollection;
+  entries: EntryCollection;
+  foods: FoodCollection;
+  settings: SettingsCollection;
+};
 export type MiDietaDatabase = RxDatabase<MiDietaCollections>;
 
 const daySchema: RxJsonSchema<DayLog> = {
@@ -29,6 +38,99 @@ const daySchema: RxJsonSchema<DayLog> = {
     waterMl: { type: "number" },
   },
   required: ["date", "meals", "waterMl"],
+};
+
+/**
+ * Alimentos registrados por texto. Documento por alimento, no por día: así no
+ * hay contención sobre un mismo documento y no hace falta cola de escritura.
+ *
+ * Todos los valores son *por unidad*; el total se calcula al mostrar.
+ */
+const entrySchema: RxJsonSchema<FoodEntry> = {
+  version: 0,
+  primaryKey: "id",
+  type: "object",
+  properties: {
+    id: { type: "string", maxLength: 36 },
+    // Indexado: RxDB exige que un campo indexado sea `required` y, si es
+    // string, que declare `maxLength`.
+    date: { type: "string", maxLength: 10 },
+    meal: { type: "string", maxLength: 16 },
+    name: { type: "string" },
+    unit: { type: "string" },
+    qty: { type: "number" },
+    kcalPerUnit: { type: "number" },
+    proteinPerUnit: { type: "number" },
+    fatPerUnit: { type: "number" },
+    carbsPerUnit: { type: "number" },
+    // JSON libre a propósito, igual que `days.meals`: un platillo puede tocar
+    // varios grupos del plan y añadir categorías no debe exigir migración.
+    portions: { type: "object" },
+    source: { type: "string", maxLength: 12 },
+    createdAt: { type: "number" },
+  },
+  required: [
+    "id",
+    "date",
+    "meal",
+    "name",
+    "unit",
+    "qty",
+    "kcalPerUnit",
+    "proteinPerUnit",
+    "fatPerUnit",
+    "carbsPerUnit",
+    "portions",
+    "source",
+    "createdAt",
+  ],
+  indexes: ["date"],
+};
+
+/** Memoria de alimentos: solo lo que el usuario pidió recordar. */
+const foodSchema: RxJsonSchema<FoodMemory> = {
+  version: 0,
+  primaryKey: "id",
+  type: "object",
+  properties: {
+    id: { type: "string", maxLength: 120 },
+    name: { type: "string" },
+    unit: { type: "string" },
+    kcalPerUnit: { type: "number" },
+    proteinPerUnit: { type: "number" },
+    fatPerUnit: { type: "number" },
+    carbsPerUnit: { type: "number" },
+    portions: { type: "object" },
+    updatedAt: { type: "number" },
+    useCount: { type: "number" },
+  },
+  required: [
+    "id",
+    "name",
+    "unit",
+    "kcalPerUnit",
+    "proteinPerUnit",
+    "fatPerUnit",
+    "carbsPerUnit",
+    "portions",
+    "updatedAt",
+    "useCount",
+  ],
+};
+
+/** Metas de kcal y macros. Un solo documento, id fijo "user". */
+const settingsSchema: RxJsonSchema<Settings> = {
+  version: 0,
+  primaryKey: "id",
+  type: "object",
+  properties: {
+    id: { type: "string", maxLength: 8 },
+    kcalGoal: { type: "number" },
+    proteinGoal: { type: "number" },
+    fatGoal: { type: "number" },
+    carbsGoal: { type: "number" },
+  },
+  required: ["id", "kcalGoal", "proteinGoal", "fatGoal", "carbsGoal"],
 };
 
 /** Llaves de la versión anterior del store, basada en localStorage. */
@@ -79,7 +181,14 @@ async function create(): Promise<MiDietaDatabase> {
     ignoreDuplicate: import.meta.env.DEV,
   });
 
-  await db.addCollections({ days: { schema: daySchema } });
+  // Colecciones nuevas: cada una lleva su propia `version: 0` y no dispara
+  // migración de `days` ni obliga a cargar el plugin de migración en producción.
+  await db.addCollections({
+    days: { schema: daySchema },
+    entries: { schema: entrySchema },
+    foods: { schema: foodSchema },
+    settings: { schema: settingsSchema },
+  });
   await migrateLegacyLocalStorage(db.days);
   return db;
 }
